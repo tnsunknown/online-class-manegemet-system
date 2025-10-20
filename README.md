@@ -1,7 +1,7 @@
 <div align="center">
   
 # 🤖 Online Class Management System 🤖
-### **WhatsApp Automation Bot** ![Online Class Management System Banner](YOUR_DIRECT_IMAGE_URL_HERE)
+### **WhatsApp Automation Bot** ![Online Class Management System Banner]([YOUR_DIRECT_IMAGE_URL_HERE](https://files.catbox.moe/art33a.jpg))
 
 [![GitHub repo size](https://img.shields.io/github/repo-size/YOUR_USERNAME/YOUR_REPOSITORY_NAME?style=for-the-badge&color=28A745)](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME)
 [![GitHub stars](https://img.shields.io/github/stars/YOUR_USERNAME/YOUR_REPOSITORY_NAME?style=for-the-badge&color=FFD700&label=Star)](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME/stargazers)
