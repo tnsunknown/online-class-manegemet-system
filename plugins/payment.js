@@ -13,7 +13,7 @@ const GEMINI_API_KEY = "AIzaSyDzkvjs52Lg7mk0jeBdAJnvt_xwsmKAuYo";
 const PAYMENT_FILE = path.join(__dirname, 'data', 'payments.json');
 
 console.log('\n╔════════════════════════════════════╗');
-console.log('║  💰 PAYMENT TRACKER ENABLED !      ║');
+console.log('║  💰 PAYMENT TRACKER ENABLED!      ║');
 console.log('╚════════════════════════════════════╝\n');
 
 // Initialize data directory and payment file
@@ -448,11 +448,34 @@ cmd({
 
     const studentJid = payment.student + '@s.whatsapp.net';
     
+    // Add student to month-specific group
+    console.log(`   👥 Adding student to group for month: ${payment.month}`);
+    const groupName = `${payment.month} Class`; // e.g., "October 2025 Class"
+    
+    // Get all participating groups
+    const allGroups = await conn.groupFetchAllParticipating();
+    let targetGroup = Object.entries(allGroups).find(([gid, meta]) => meta.subject === groupName);
+    
+    let groupJid;
+    if (targetGroup) {
+      groupJid = targetGroup[0];
+      console.log(`   📁 Existing group found: ${groupJid}`);
+      // Add student to existing group
+      await conn.groupParticipantsUpdate(groupJid, [studentJid], 'add');
+      console.log(`   ✅ Student added to existing group`);
+    } else {
+      console.log('   📁 No group found, creating new one...');
+      // Create new group with student
+      const createResponse = await conn.groupCreate(groupName, [studentJid]);
+      groupJid = createResponse.gid;
+      console.log(`   ✅ New group created: ${groupJid}`);
+    }
+    
     // Notify student
     console.log(`   📨 Notifying student: ${studentJid}`);
     try {
       await conn.sendMessage(studentJid, {
-        text: `✅ *Payment Verified!*\n\n💰 Amount: රු. ${payment.amount}/=\n📅 Month: ${payment.month}\n\n🎉 Thank you! You're all set for classes.`
+        text: `✅ *Payment Verified!*\n\n💰 Amount: රු. ${payment.amount}/=\n📅 Month: ${payment.month}\n\n🎉 Thank you! You're all set for classes.\n\n👥 You've been added to the "${groupName}" group.`
       });
       console.log('   ✅ Student notified successfully');
     } catch (e) {
@@ -460,7 +483,7 @@ cmd({
     }
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    return reply(`✅ Payment verified!\n\n👤 Student: ${payment.student}\n💰 Amount: ${payment.amount}\n📅 Month: ${payment.month}\n\n📨 Student has been notified.`);
+    return reply(`✅ Payment verified!\n\n👤 Student: ${payment.student}\n💰 Amount: ${payment.amount}\n📅 Month: ${payment.month}\n👥 Added to group: ${groupName}\n\n📨 Student has been notified.`);
 
   } catch (e) {
     console.error('❌ Error in verifypay:', e);
