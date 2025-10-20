@@ -1,5 +1,5 @@
 
-  "name": "DTZ-MOVIE-X",
+  "name": "online-class-managment-system",
   "version": "1.0.0",
   "scripts": {
     "start": "pm2 start index.js --deep-monitoring --attach --name DTZ-MOVIE-X",
