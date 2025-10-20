@@ -12,7 +12,7 @@
     "@blackamda/telegram-image-url": "^1.0.0",
     "@bochilteam/scraper": "^4.0.22-alpha.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@whiskeysockets/baileys": "npm:baileys-dtz",
+    "@whiskeysockets/baileys": "7.0.0-rc.6",
     "async-g-i-s": "^1.4.0",
     "axios": "^1.2.5",
     "quickchart-js":"latest",
