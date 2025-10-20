@@ -1,4 +1,4 @@
-// payment_plugin.js
+
 // This is the Payment Processing Plugin for handling payment slips and related commands.
 
 const { cmd } = require('../command');
