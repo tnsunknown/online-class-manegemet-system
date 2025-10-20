@@ -13,7 +13,7 @@ const GEMINI_API_KEY = "AIzaSyDzkvjs52Lg7mk0jeBdAJnvt_xwsmKAuYo";
 const PAYMENT_FILE = path.join(__dirname, 'data', 'payments.json');
 
 console.log('\n╔════════════════════════════════════╗');
-console.log('║  💰 PAYMENT TRACKER ENABLED!      ║');
+console.log('║  💰 PAYMENT TRACKER ENABLED !      ║');
 console.log('╚════════════════════════════════════╝\n');
 
 // Initialize data directory and payment file
