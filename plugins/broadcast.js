@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('\n╔════════════════════════════════════╗');
-console.log('║  📢 GROUP BROADCAST PLUGIN LOADED! ║');
+console.log('║ 📢 GROUP BROADCAST PLUGIN LOADED! ║');
 console.log('╚════════════════════════════════════╝\n');
 
 // 🎯 Broadcast Command
