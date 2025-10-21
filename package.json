@@ -1,9 +1,9 @@
-
-  "name": "online-class-managment-system",
+{
+  "name": "DTZ-MOVIE-X",
   "version": "1.0.0",
   "scripts": {
     "start": "pm2 start index.js --deep-monitoring --attach --name DTZ-MOVIE-X",
-    "stop": "pm2 stop DTZ-class -manegement-system",
+    "stop": "pm2 stop DTZ-MOVIE-X",
     "restart": "git pull && npm stop && npm start",
     "stash": "git stash && git stash drop"
   },
@@ -12,7 +12,7 @@
     "@blackamda/telegram-image-url": "^1.0.0",
     "@bochilteam/scraper": "^4.0.22-alpha.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@whiskeysockets/baileys": "7.0.0-rc.6",
+    "@whiskeysockets/baileys": "npm:baileys-dtz",
     "async-g-i-s": "^1.4.0",
     "axios": "^1.2.5",
     "quickchart-js":"latest",
@@ -43,11 +43,11 @@
     "fs":"latest",
     "path": "^0.12.7",
     "pino": "^7.0.5",
-    
+    "denethdev-ytmp3":"latest",
     "pm2": "^5.2.0",
     "qrcode-terminal": "^0.12.0",
     "util": "^0.12.4",
-  
+    "node-telegram-bot-api":"latest",
     "puppeteer":"latest",
     "vm": "^0.1.0"
   }
