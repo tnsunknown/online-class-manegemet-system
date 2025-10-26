@@ -51,7 +51,7 @@ const ownerNumber = ['94701525284']
 //===================SESSION============================
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
     if (config.SESSION_ID) {
-      const sessdata = config.SESSION_ID.replace("SHADOW=", "")
+      const sessdata = config.SESSION_ID.replace("𝙾𝙲𝙼𝙱=", "")
       const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
       filer.download((err, data) => {
         if (err) throw err
@@ -109,17 +109,17 @@ async function connectToWA() {
             console.log('Plugins installed ✅')
             console.log('Bot connected ✅')
             
-            let up = `*𝒫𝒶𝓈𝓉 𝒫𝒶𝓅𝑒𝓇 BOT 𝗖𝗼𝗻𝗻𝗲𝗰𝘁𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆!* ✅ 
+            let up = `*Online Class management BOT 𝗖𝗼𝗻𝗻𝗲𝗰𝘁𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆!* ✅ 
 
 🌟 *Welcome to 𝒫𝒶𝓈𝓉 𝒫𝒶𝓅𝑒𝓇 BOT!* 🌟
 
 *🔹 PREFIX:* .
 
 *🖇️Join Us WhatsApp Channel✓💗1 - :* 
- https://whatsapp.com/channel/0029Vb6HQGHAojYtcbJg5z1Z
+https://www.whatsapp.com/channel/0029Vb6HQGHAojYtcbJg5z1Z
 
-> *ᴘᴏᴡᴇʀᴅ ʙʏ DTZ PastPaper Bot*`; // Updated here
-conn.sendMessage(ownerNumber + "@s.whatsapp.net", { image: { url: `https://files.catbox.moe/gxgikz.jpg` }, caption: up })
+> ᴘᴏᴡᴇʀᴅ ʙʏ Online Class Manager Bot*`; // Updated here
+conn.sendMessage(ownerNumber + "@s.whatsapp.net", { image: { url: `https://files.catbox.moe/jqjny8.png` }, caption: up })
 }
 })
     conn.ev.on('creds.update', saveCreds)
@@ -172,10 +172,10 @@ conn.sendMessage(ownerNumber + "@s.whatsapp.net", { image: { url: `https://files
             }
             // Static owner configuration data (previously fetched from raw gist)
 const ownerdata = {
-    imageurl: "https://files.catbox.moe/gxgikz.jpg",
+    imageurl: "https://files.catbox.moe/jqjny8.png",
     button: "CLICK ME",
-    footer: "Powered by DTZ PastPaper Bot", // Updated here
-    buttonurl: "https://dtz-zone.vercel.app"
+    footer: "Powered by Online Class MAnegement  Bot", // Updated here
+    buttonurl: "https://chathuradev.netlify.app"
 }
 
 // Apply to config object
