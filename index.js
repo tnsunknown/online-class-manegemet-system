@@ -113,7 +113,7 @@ async function connectToWA() {
 
 🌟 *Welcome to  Online Class Management system BOT!* 🌟
 
-*🔹 PREFIX:* .
+*🔹PREFIX*:  .
 
 *🖇️Join Us WhatsApp Channel* 
 https://www.whatsapp.com/channel/0029Vb6HQGHAojYtcbJg5z1Z
