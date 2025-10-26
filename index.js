@@ -111,14 +111,14 @@ async function connectToWA() {
             
             let up = `*Online Class management BOT 𝗖𝗼𝗻𝗻𝗲𝗰𝘁𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆!* ✅ 
 
-🌟 *Welcome to 𝒫𝒶𝓈𝓉 𝒫𝒶𝓅𝑒𝓇 BOT!* 🌟
+🌟 *Welcome to  Online Class Management system BOT!* 🌟
 
 *🔹 PREFIX:* .
 
-*🖇️Join Us WhatsApp Channel✓💗1 - :* 
+*🖇️Join Us WhatsApp Channel* 
 https://www.whatsapp.com/channel/0029Vb6HQGHAojYtcbJg5z1Z
 
-> ᴘᴏᴡᴇʀᴅ ʙʏ Online Class Manager Bot*`; // Updated here
+> ᴘᴏᴡᴇʀᴅ ʙʏ Online Class Manager Bot`; // Updated here
 conn.sendMessage(ownerNumber + "@s.whatsapp.net", { image: { url: `https://files.catbox.moe/jqjny8.png` }, caption: up })
 }
 })
