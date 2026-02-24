@@ -76,6 +76,7 @@ async function connectToWA() {
         state,
         saveCreds
     } = await useMultiFileAuthState(__dirname + '/auth_info_baileys/')
+    
     const conn = makeWASocket({
         logger: P({
             level: "fatal"
@@ -86,7 +87,16 @@ async function connectToWA() {
         generateHighQualityLinkPreview: true,
         auth: state,
         defaultQueryTimeoutMs: undefined,
-        msgRetryCounterCache
+        msgRetryCounterCache,
+        version: [2, 3000, 1033105955],
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 0,
+        keepAliveIntervalMs: 10000,
+        emitOwnEvents: true,
+        fireInitQueries: true,
+        syncFullHistory: true,
+        markOnlineOnConnect: true,
+        browser: Browsers.macOS('Desktop')
     })
 
     conn.ev.on('connection.update', async (update) => {
@@ -118,10 +128,10 @@ async function connectToWA() {
 *🖇️Join Us WhatsApp Channel* 
 https://www.whatsapp.com/channel/0029Vb6HQGHAojYtcbJg5z1Z
 
-> ᴘᴏᴡᴇʀᴅ ʙʏ Online Class Manager Bot`; // Updated here
-conn.sendMessage(ownerNumber + "@s.whatsapp.net", { image: { url: `https://files.catbox.moe/jqjny8.png` }, caption: up })
-}
-})
+> ᴘᴏᴡᴇʀᴅ ʙʏ Online Class Manager Bot`
+            conn.sendMessage(ownerNumber[0] + "@s.whatsapp.net", { image: { url: `https://files.catbox.moe/jqjny8.png` }, caption: up })
+        }
+    })
     conn.ev.on('creds.update', saveCreds)
     conn.ev.on('messages.upsert', async (mek) => {
         try {
@@ -174,7 +184,7 @@ conn.sendMessage(ownerNumber + "@s.whatsapp.net", { image: { url: `https://files
 const ownerdata = {
     imageurl: "https://files.catbox.moe/jqjny8.png",
     button: "CLICK ME",
-    footer: "Powered by Online Class MAnegement  Bot", // Updated here
+    footer: "Powered by Online Class Management Bot",
     buttonurl: "https://chathuradev.netlify.app"
 }
 
@@ -426,9 +436,9 @@ config.BTNURL = ownerdata.buttonurl
     })
 }
 app.get("/", (req, res) => {
-    res.send("🚀 DTZ PastPaper Bot SUCCESS ."); // Updated here
+    res.send("🚀 Online Class Management Bot SUCCESS ✅");
 });
-app.listen(port, () => console.log(`🚀 ICT  Bot listening on port http://localhost:${port}`)); // Updated here
+app.listen(port, () => console.log(`🚀 ICT Bot listening on port http://localhost:${port}`));
 setTimeout(() => {
     connectToWA()
 }, 3000);
