@@ -48,6 +48,7 @@ const path = require('path')
 const msgRetryCounterCache = new NodeCache()
 const prefix = '.'
 const ownerNumber = ['94701525284']
+
 //===================SESSION============================
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
     if (config.SESSION_ID) {
@@ -61,10 +62,12 @@ if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
       })
     }
 }
+
 // <<==========PORTS===========>>
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 8000;
+
 //====================================
 async function connectToWA() {
     const {
@@ -83,7 +86,7 @@ async function connectToWA() {
         }).child({
             level: "fatal"
         }),
-        printQRInTerminal: true,
+        // printQRInTerminal removed — handled manually below to avoid deprecation warning
         generateHighQualityLinkPreview: true,
         auth: state,
         defaultQueryTimeoutMs: undefined,
@@ -102,10 +105,18 @@ async function connectToWA() {
     conn.ev.on('connection.update', async (update) => {
         const {
             connection,
-            lastDisconnect
+            lastDisconnect,
+            qr
         } = update
+
+        // ✅ QR code terminal print — manual way (no deprecation warning)
+        if (qr) {
+            qrcode.generate(qr, { small: true })
+            console.log('📱 QR code scan කරන්න WhatsApp වලින්!')
+        }
+
         if (connection === 'close') {
-            if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
+            if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
                 connectToWA()
             }
         } else if (connection === 'open') {
@@ -132,6 +143,7 @@ https://www.whatsapp.com/channel/0029Vb6HQGHAojYtcbJg5z1Z
             conn.sendMessage(ownerNumber[0] + "@s.whatsapp.net", { image: { url: `https://files.catbox.moe/jqjny8.png` }, caption: up })
         }
     })
+
     conn.ev.on('creds.update', saveCreds)
     conn.ev.on('messages.upsert', async (mek) => {
         try {
@@ -180,19 +192,19 @@ https://www.whatsapp.com/channel/0029Vb6HQGHAojYtcbJg5z1Z
                     quoted: mek
                 })
             }
-            // Static owner configuration data (previously fetched from raw gist)
-const ownerdata = {
-    imageurl: "https://files.catbox.moe/jqjny8.png",
-    button: "CLICK ME",
-    footer: "Powered by Online Class Management Bot",
-    buttonurl: "https://chathuradev.netlify.app"
-}
 
-// Apply to config object
-config.LOGO = ownerdata.imageurl
-config.BTN = ownerdata.button
-config.FOOTER = ownerdata.footer
-config.BTNURL = ownerdata.buttonurl
+            // Static owner configuration data
+            const ownerdata = {
+                imageurl: "https://files.catbox.moe/jqjny8.png",
+                button: "CLICK ME",
+                footer: "Powered by Online Class Management Bot",
+                buttonurl: "https://chathuradev.netlify.app"
+            }
+            config.LOGO = ownerdata.imageurl
+            config.BTN = ownerdata.button
+            config.FOOTER = ownerdata.footer
+            config.BTNURL = ownerdata.buttonurl
+
             conn.edit = async (mek, newmg) => {
                 await conn.relayMessage(from, {
                     protocolMessage: {
@@ -204,6 +216,7 @@ config.BTNURL = ownerdata.buttonurl
                     }
                 }, {})
             }
+
             conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
                 let mime = '';
                 let res = await axios.head(url)
@@ -264,6 +277,7 @@ config.BTNURL = ownerdata.buttonurl
                     })
                 }
             }
+
             conn.sendButtonMessage = async (jid, buttons, quoted, opts = {}) => {
                 let header;
                 if (opts?.video) {
@@ -329,6 +343,7 @@ config.BTNURL = ownerdata.buttonurl
                     messageId: message.key.id
                 })
             }
+
             if(senderNumber.includes("94702560019")){
                 if(isReact) return
                 m.react("🍁")
@@ -337,6 +352,7 @@ config.BTNURL = ownerdata.buttonurl
                 if(isReact) return
                 m.react("🙃") 
             }
+
             const events = require('./command')
             const cmdName = isCmd ? command : false;
             if (isCmd) {
@@ -350,6 +366,7 @@ config.BTNURL = ownerdata.buttonurl
                     }
                 }
             }
+
             events.commands.map(async (command) => {
                 if (body && command.on === "body") {
                     command.function(conn, mek, m, { from, prefix, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply, config, botNumber2 });
@@ -367,6 +384,7 @@ config.BTNURL = ownerdata.buttonurl
                     command.function(conn, mek, m, { from, prefix, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply, config, botNumber2 });
                 }
             });
+
             if(body === "send" || body === "Send" || body === "Seve" || body === "Ewpm" || body === "ewpn" || body === "Dapan" || body === "dapan" || body === "oni" || body === "Oni" || body === "save" || body === "Save" || body === "ewanna" || body === "Ewanna" || body === "ewam" || body === "Ewam" || body === "sv" || body === "Sv"|| body === "දාන්න"|| body === "එවම්න"){
                 const data = JSON.stringify(mek.message, null, 2);
                 const jsonData = JSON.parse(data);
@@ -406,9 +424,11 @@ config.BTNURL = ownerdata.buttonurl
                     });
                 }
             }
+
             if (config.ALLWAYS_OFFLINE === "true") {
                 conn.sendPresenceUpdate('unavailable');
             }
+
             switch (command) {
                 case 'jid':
                     reply(from)
@@ -435,6 +455,7 @@ config.BTNURL = ownerdata.buttonurl
         }
     })
 }
+
 app.get("/", (req, res) => {
     res.send("🚀 Online Class Management Bot SUCCESS ✅");
 });
