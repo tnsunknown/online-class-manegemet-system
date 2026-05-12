@@ -12,7 +12,7 @@
     "@blackamda/telegram-image-url": "^1.0.0",
     "@bochilteam/scraper": "^4.0.22-alpha.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@whiskeysockets/baileys": "npm:vyzen-baileysx",
+    "@whiskeysockets/baileys":"npm:amanexfujimiya-baileys",
     "async-g-i-s": "^1.4.0",
     "axios": "^1.2.5",
     "node-cron":"latest",
