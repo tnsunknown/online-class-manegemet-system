@@ -187,7 +187,7 @@ async function downloadAndSend(conn, mek, from, movie, quality, thumbBuf, reply)
 // 🎬  .m  SEARCH
 // ============================================================
 cmd({
-    pattern: 'm',
+    pattern: 'c',
     desc: 'Movie downloader — multiple downloads supported',
     category: 'download'
 }, async (conn, mek, m, { from, args, reply }) => {
