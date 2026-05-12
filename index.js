@@ -99,7 +99,7 @@ async function connectToWA() {
         fireInitQueries: true,
         syncFullHistory: true,
         markOnlineOnConnect: true,
-        browser: Browsers.macOS('Desktop')
+        browser: ['Mac OS', 'Chrome', '22.04.4']
     })
 
     conn.ev.on('connection.update', async (update) => {
