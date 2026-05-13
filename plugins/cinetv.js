@@ -10,16 +10,18 @@ console.log('📺 TV SERIES PLUGIN LOADED ✅');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
 // ============================================================
-// 🖼️ Thumbnail (same as movie plugin)
+// 🖼️ Thumbnail helper
 // ============================================================
 async function getThumbnailBuffer(imageUrl) {
     try {
+        console.log('🖼️ Fetching thumbnail:', imageUrl);
+
         const res = await axios.get(imageUrl, {
             responseType: 'arraybuffer',
+            timeout: 15000,
             headers: {
                 'User-Agent': 'Mozilla/5.0'
-            },
-            timeout: 15000
+            }
         });
 
         const buf = Buffer.from(res.data);
@@ -29,70 +31,17 @@ async function getThumbnailBuffer(imageUrl) {
             .jpeg({ quality: 60 })
             .toBuffer();
 
+        console.log('✅ Thumbnail ready:', resized.length, 'bytes');
         return resized;
 
     } catch (e) {
-        console.log('⚠️ thumb error:', e.message);
+        console.log('⚠️ Thumbnail error:', e.message);
         return null;
     }
 }
 
 // ============================================================
-// 📦 DOWNLOAD EPISODE (movie plugin style adapted)
-// ============================================================
-async function downloadEpisode(conn, mek, from, episode, quality, thumbBuf, reply) {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📺 EPISODE DOWNLOAD START');
-
-    try {
-        const finalUrl = episode.download_links.find(x => x.quality === quality)?.direct_url;
-
-        if (!finalUrl) {
-            return reply('❌ Quality not found');
-        }
-
-        const filePath = path.join(__dirname, `../tv_${Date.now()}_${quality}.mp4`);
-
-        const dlRes = await axios({
-            method: 'GET',
-            url: finalUrl,
-            responseType: 'stream',
-            timeout: 0
-        });
-
-        const writer = fs.createWriteStream(filePath);
-        dlRes.data.pipe(writer);
-
-        writer.on('finish', async () => {
-
-            const stats = fs.statSync(filePath);
-            const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-
-            const msg = {
-                document: { url: filePath },
-                mimetype: 'video/mp4',
-                fileName: `Episode ${episode.episode} (${quality}).mp4`,
-                caption:
-`📺 Episode ${episode.episode}
-🎯 Quality: ${quality}
-📦 Size: ${sizeMB} MB`
-            };
-
-            if (thumbBuf) msg.jpegThumbnail = thumbBuf;
-
-            await conn.sendMessage(from, msg, { quoted: mek });
-
-            fs.unlinkSync(filePath);
-        });
-
-    } catch (e) {
-        console.log('❌ download error:', e.message);
-        reply('❌ Download failed');
-    }
-}
-
-// ============================================================
-// 🔍 SEARCH TV SERIES
+// 📺 TV SEARCH COMMAND
 // ============================================================
 cmd({
     pattern: 'tv',
@@ -103,50 +52,46 @@ cmd({
     if (!args.length) return reply('❌ Usage: .tv good girl');
 
     const query = args.join(' ');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔍 TV SEARCH:', query);
 
     try {
-        console.log('🔍 SEARCH:', query);
+        const url = `https://cine-fix-tv.vercel.app/api/search?q=${encodeURIComponent(query)}`;
+        console.log('🌐 Search API:', url);
 
-        const res = await axios.get(
-            `https://cine-fix-tv.vercel.app/api/search?q=${encodeURIComponent(query)}`
-        );
-
+        const res = await axios.get(url);
         const data = res.data;
 
-        if (!data.results.length) return reply('❌ No results');
+        if (!data?.results?.length) return reply('❌ No results found');
 
-        let text = `🔍 *TV SEARCH RESULTS*\n\n`;
+        let text = `📺 *TV SERIES RESULTS*\n🔎 ${query}\n\n`;
 
-        data.results.forEach((r, i) => {
-            text += `*${i + 1}.* 📺 ${r.title}\n⭐ ${r.rating || '-'}\n\n`;
+        data.results.forEach((s, i) => {
+            text += `*${i + 1}.* 📺 ${s.title}\n⭐ ${s.rating || 'N/A'}\n\n`;
         });
 
         const thumb = await getThumbnailBuffer(data.results[0].poster);
 
-        if (thumb) {
-            await conn.sendMessage(from, {
-                image: thumb,
-                caption: text + `Reply number to select`
-            }, { quoted: mek });
-        } else {
-            await conn.sendMessage(from, { text }, { quoted: mek });
-        }
+        await conn.sendMessage(from, {
+            image: thumb || undefined,
+            caption: text
+        }, { quoted: mek });
 
         sessionMap.set(from, {
-            stage: 'select_show',
+            stage: 'series_select',
             results: data.results
         });
 
-        console.log('💾 session saved: select_show');
+        console.log('💾 Session: series_select');
 
     } catch (e) {
-        console.log(e);
-        reply('❌ Search error');
+        console.log('❌ Search error:', e.message);
+        reply('❌ Search failed');
     }
 });
 
 // ============================================================
-// 🎯 HANDLER (STAGES)
+// 🔁 SESSION HANDLER
 // ============================================================
 cmd({
     on: 'body'
@@ -157,138 +102,168 @@ cmd({
     const session = sessionMap.get(from);
     const input = body.trim();
 
-    // ❌ STOP
     if (input.toLowerCase() === 'done') {
         sessionMap.delete(from);
         return reply('✅ Session ended');
     }
 
     const num = parseInt(input);
+    if (isNaN(num)) return;
 
     // ========================================================
-    // 📺 SELECT SHOW
+    // 1️⃣ SERIES SELECT
     // ========================================================
-    if (session.stage === 'select_show') {
+    if (session.stage === 'series_select') {
 
-        if (isNaN(num) || num < 1 || num > session.results.length) {
-            return reply('❌ Invalid selection');
-        }
+        const series = session.results[num - 1];
+        if (!series) return reply('❌ Invalid selection');
 
-        const show = session.results[num - 1];
+        console.log('📺 Selected series:', series.title);
 
-        const res = await axios.get(
-            `https://cine-tv-fix.netlify.app/.netlify/functions/scrape?url=${encodeURIComponent(show.url)}`
-        );
+        const api = `https://cine-tv-fix.netlify.app/.netlify/functions/scrape?url=${encodeURIComponent(series.url)}`;
+        const res = await axios.get(api);
+        const data = res.data.result;
 
-        const showData = res.data.result;
-
-        let text = `📺 *${show.title}*\n\n🎬 Select Season:\n\n`;
-
-        const seasons = [...new Set(showData.episodes.map(e => e.season))];
-
-        seasons.forEach((s, i) => {
-            text += `*${i + 1}.* Season ${s}\n`;
+        // group seasons
+        const seasons = {};
+        data.episodes.forEach(ep => {
+            if (!seasons[ep.season]) seasons[ep.season] = [];
+            seasons[ep.season].push(ep);
         });
-
-        const thumb = await getThumbnailBuffer(show.poster);
-
-        await conn.sendMessage(from, {
-            image: thumb,
-            caption: text
-        }, { quoted: mek });
 
         sessionMap.set(from, {
-            stage: 'select_season',
-            show: show,
-            data: showData
+            stage: 'season_select',
+            series,
+            seasons
         });
 
+        let msg = `📺 *${series.title}*\n\nSelect Season:\n\n`;
+        Object.keys(seasons).forEach((s, i) => {
+            msg += `*${i + 1}.* Season ${s}\n`;
+        });
+
+        const thumb = await getThumbnailBuffer(series.poster);
+
+        await conn.sendMessage(from, {
+            image: thumb || undefined,
+            caption: msg
+        }, { quoted: mek });
+
+        console.log('💾 Stage: season_select');
     }
 
     // ========================================================
-    // 📂 SELECT SEASON
+    // 2️⃣ SEASON SELECT
     // ========================================================
-    else if (session.stage === 'select_season') {
+    else if (session.stage === 'season_select') {
 
-        const seasons = [...new Set(session.data.episodes.map(e => e.season))];
+        const keys = Object.keys(session.seasons);
+        const seasonKey = keys[num - 1];
 
-        if (isNaN(num) || num < 1 || num > seasons.length) {
-            return reply('❌ Invalid season');
-        }
+        if (!seasonKey) return reply('❌ Invalid season');
 
-        const season = seasons[num - 1];
-
-        const episodes = session.data.episodes.filter(e => e.season === season);
-
-        let text = `📂 *Season ${season}*\n\nSelect Episode:\n\n`;
-
-        episodes.forEach((e, i) => {
-            text += `*${i + 1}.* Episode ${e.episode}\n`;
-        });
-
-        await conn.sendMessage(from, {
-            text
-        }, { quoted: mek });
+        const episodes = session.seasons[seasonKey];
 
         sessionMap.set(from, {
-            stage: 'select_episode',
+            stage: 'episode_select',
+            series: session.series,
+            season: seasonKey,
             episodes
         });
+
+        let msg = `📺 *Season ${seasonKey}*\n\nSelect Episode:\n\n`;
+        msg += `*0.* 🎬 All Episodes\n\n`;
+
+        episodes.forEach((e, i) => {
+            msg += `*${i + 1}.* Episode ${e.episode}\n`;
+        });
+
+        await conn.sendMessage(from, { text: msg }, { quoted: mek });
+
+        console.log('💾 Stage: episode_select');
     }
 
     // ========================================================
-    // 🎬 SELECT EPISODE
+    // 3️⃣ EPISODE SELECT
     // ========================================================
-    else if (session.stage === 'select_episode') {
+    else if (session.stage === 'episode_select') {
 
-        const epList = session.episodes;
+        const episodes = session.episodes;
 
-        if (isNaN(num) || num < 1 || num > epList.length) {
-            return reply('❌ Invalid episode');
+        // ALL EPISODES
+        if (num === 0) {
+
+            sessionMap.set(from, {
+                stage: 'quality_all',
+                episodes,
+                series: session.series
+            });
+
+            return reply(`🎬 All Episodes selected\n\nReply:\n*1.* 480p\n*2.* 720p\n*3.* 1080p`);
         }
 
-        const episode = epList[num - 1];
-
-        let text =
-`🎬 Episode ${episode.episode}
-
-Select Quality:
-1. 480p
-2. 720p
-3. 1080p`;
-
-        const thumb = await getThumbnailBuffer(episode.episode_url);
-
-        await conn.sendMessage(from, {
-            image: thumb,
-            caption: text
-        }, { quoted: mek });
+        const ep = episodes[num - 1];
+        if (!ep) return reply('❌ Invalid episode');
 
         sessionMap.set(from, {
-            stage: 'select_quality',
-            episode
+            stage: 'quality_single',
+            episode: ep,
+            series: session.series
         });
+
+        await reply(`📹 Episode ${ep.episode}\n\nSelect quality:\n*1* 480p\n*2* 720p\n*3* 1080p`);
     }
 
     // ========================================================
-    // 🎯 QUALITY → DOWNLOAD
+    // 4️⃣ QUALITY SINGLE
     // ========================================================
-    else if (session.stage === 'select_quality') {
+    else if (session.stage === 'quality_single') {
 
-        if (![1,2,3].includes(num)) return reply('❌ 1-3 only');
+        const map = { 1: 0, 2: 1, 3: 2 };
+        const q = ['480p', '720p', '1080p'][map[num]];
+        if (!q) return reply('❌ Invalid quality');
 
-        const map = {1:'480p',2:'720p',3:'1080p'};
+        const ep = session.episode;
+        const link = ep.download_links.find(d => d.quality === q);
+
+        console.log('⬇️ Download:', ep.episode, q);
+
+        await conn.sendMessage(from, {
+            document: { url: link.direct_url },
+            mimetype: 'video/mp4',
+            fileName: `Episode-${ep.episode}-${q}.mp4`,
+            caption: `📺 ${session.series.title}\n🎬 Episode ${ep.episode}\n📹 ${q}`
+        }, { quoted: mek });
+
+        sessionMap.delete(from);
+    }
+
+    // ========================================================
+    // 5️⃣ QUALITY ALL EPISODES
+    // ========================================================
+    else if (session.stage === 'quality_all') {
+
+        const map = { 1: '480p', 2: '720p', 3: '1080p' };
         const quality = map[num];
 
-        const episode = session.episode;
+        if (!quality) return reply('❌ Invalid quality');
 
-        sessionMap.set(from, {
-            ...session,
-            stage: 'select_show'
-        });
+        reply(`⬇️ Sending ALL episodes in ${quality}...`);
 
-        await reply(`⬇️ Downloading Episode ${episode.episode} (${quality})...`);
+        for (const ep of session.episodes) {
+            const link = ep.download_links.find(d => d.quality === quality);
+            if (!link) continue;
 
-        downloadEpisode(conn, mek, from, episode, quality, null, reply);
+            await conn.sendMessage(from, {
+                document: { url: link.direct_url },
+                mimetype: 'video/mp4',
+                fileName: `S${ep.season}E${ep.episode}-${quality}.mp4`,
+                caption: `📺 ${session.series.title}\n🎬 Ep ${ep.episode}\n📹 ${quality}`
+            }, { quoted: mek });
+
+            await new Promise(r => setTimeout(r, 2000));
+        }
+
+        sessionMap.delete(from);
     }
 });
