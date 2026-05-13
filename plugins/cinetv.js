@@ -1,192 +1,197 @@
-const { cmd } = require('../command');
-const axios = require('axios');
+const axios = require("axios");
 
-const session = new Map();
+const sessions = {}; 
+// user state store (jid based)
 
-console.log('📺 TV BOT LOADED ✅');
+const SEARCH_API = "https://YOUR-SEARCH-API/search?query=";
+const SCRAPE_API =
+  "https://cine-tv-fix.netlify.app/.netlify/functions/scrape?url=";
 
-// ============================================================
-// 📺 TV SEARCH COMMAND
-// ============================================================
-cmd({
-    pattern: 'tv',
-    desc: 'TV Series downloader',
-    category: 'download'
-}, async (conn, mek, m, { from, args, reply }) => {
+// ===============================
+// 1. MAIN COMMAND
+// ===============================
+module.exports = async (m, sock, text) => {
+  const jid = m.key.remoteJid;
 
-    if (!args.length) return reply('❌ Usage: .tv good girl');
+  if (!sessions[jid]) sessions[jid] = {};
 
-    const query = args.join(' ');
+  // ===============================
+  // STEP 1: SEARCH SERIES
+  // ===============================
+  if (text.startsWith(".tv ")) {
+    const query = text.replace(".tv ", "").trim();
 
-    try {
-        const searchUrl = `https://cine-fix-tv.vercel.app/api/search?q=${encodeURIComponent(query)}`;
-        const res = await axios.get(searchUrl, { timeout: 15000 });
+    const res = await axios.get(SEARCH_API + encodeURIComponent(query));
+    const results = res.data.results;
 
-        const data = res.data?.results;
+    sessions[jid] = { step: "search", results };
 
-        if (!data || !data.length) {
-            return reply('❌ No TV series found');
-        }
+    let msg = "🎬 *Search Results*\n\n";
 
-        let text = `📺 *TV SERIES RESULTS*\n\n`;
-        text += `🔎 Query: *${query}*\n\n`;
+    results.forEach((r, i) => {
+      msg += `${i + 1}. ${r.title}\n`;
+    });
 
-        data.forEach((tv, i) => {
-            text += `*${i + 1}.* 📺 ${tv.title}\n`;
-            text += `⭐ ${tv.rating || 'N/A'} | ${tv.season_status || ''}\n\n`;
-        });
+    msg += "\nReply with number to select series";
 
-        text += `_Reply number to select series_\n_Reply "done" to cancel_`;
+    return sock.sendMessage(jid, { text: msg });
+  }
 
-        await conn.sendMessage(from, { text }, { quoted: mek });
+  // ===============================
+  // STEP 2: SELECT SERIES
+  // ===============================
+  if (sessions[jid]?.step === "search") {
+    const index = parseInt(text) - 1;
+    const series = sessions[jid].results[index];
 
-        session.set(from, {
-            stage: 'select_series',
-            results: data
-        });
+    if (!series) return sock.sendMessage(jid, { text: "Invalid selection" });
 
-    } catch (e) {
-        console.log(e.message);
-        reply('❌ Search failed');
-    }
-});
+    const scrapeUrl = SCRAPE_API + encodeURIComponent(series.url);
 
+    const data = await axios.get(scrapeUrl);
+    const result = data.data.result;
 
-// ============================================================
-// 🎯 MESSAGE HANDLER (SESSION)
-// ============================================================
-cmd({
-    on: 'body'
-}, async (conn, mek, m, { from, body, reply }) => {
+    sessions[jid] = {
+      step: "series",
+      series,
+      result,
+    };
 
-    if (!session.has(from)) return;
+    let msg = `📺 *${series.title}*\n\nSelect Season:\n`;
 
-    const s = session.get(from);
-    const input = body.trim();
+    const seasons = [...new Set(result.episodes.map(e => e.season))];
 
-    if (input.toLowerCase() === 'done') {
-        session.delete(from);
-        return reply('✅ TV session ended');
-    }
+    seasons.forEach((s, i) => {
+      msg += `${i + 1}. Season ${s}\n`;
+    });
 
-    const num = parseInt(input);
-    if (isNaN(num)) return;
+    msg += `\n0. Download ALL Episodes`;
 
-    // ========================================================
-    // 🎬 SELECT SERIES
-    // ========================================================
-    if (s.stage === 'select_series') {
+    return sock.sendMessage(jid, { text: msg });
+  }
 
-        const series = s.results[num - 1];
-        if (!series) return reply('❌ Invalid number');
+  // ===============================
+  // STEP 3: SEASON SELECT
+  // ===============================
+  if (sessions[jid]?.step === "series") {
+    const { result } = sessions[jid];
 
-        await reply(`📺 Loading episodes...\n🎬 *${series.title}*`);
+    if (text === "0") {
+      sessions[jid].step = "all_download";
 
-        try {
-            const api = `https://cine-tv-fix.netlify.app/.netlify/functions/scrape?url=${encodeURIComponent(series.url)}`;
-            const res = await axios.get(api, {
-                timeout: 20000,
-                headers: { "User-Agent": "Mozilla/5.0" }
-            });
-
-            const episodes = res.data?.result?.episodes;
-
-            if (!episodes || !episodes.length) {
-                return reply('❌ Episodes not found');
-            }
-
-            let text = `📺 *${series.title}*\n\n🎬 Select Episode:\n\n`;
-
-            episodes.forEach((ep, i) => {
-                text += `*${i + 1}.* S${ep.season}E${ep.episode}\n`;
-            });
-
-            text += `\n_Reply number to select episode_`;
-
-            await conn.sendMessage(from, { text }, { quoted: mek });
-
-            session.set(from, {
-                stage: 'select_episode',
-                series,
-                episodes
-            });
-
-        } catch (e) {
-            console.log(e.message);
-            reply('❌ Failed to load episodes');
-        }
+      return sock.sendMessage(jid, {
+        text: "⚡ Select quality for ALL episodes: 480 / 720 / 1080",
+      });
     }
 
+    const seasons = [...new Set(result.episodes.map(e => e.season))];
+    const season = seasons[parseInt(text) - 1];
 
-    // ========================================================
-    // 🎬 SELECT EPISODE
-    // ========================================================
-    else if (s.stage === 'select_episode') {
+    if (!season) return sock.sendMessage(jid, { text: "Invalid season" });
 
-        const ep = s.episodes[num - 1];
-        if (!ep) return reply('❌ Invalid episode');
+    const eps = result.episodes.filter(e => e.season === season);
 
-        let text =
-`🎬 S${ep.season}E${ep.episode}
+    sessions[jid] = {
+      step: "episode",
+      season,
+      eps,
+    };
 
-📥 Select Quality:
-1️⃣ 480p
-2️⃣ 720p
-3️⃣ 1080p`;
+    let msg = `🎬 Season ${season}\n\nSelect Episode:\n`;
 
-        await conn.sendMessage(from, { text }, { quoted: mek });
+    eps.forEach((e, i) => {
+      msg += `${i + 1}. Episode ${e.episode}\n`;
+    });
 
-        session.set(from, {
-            stage: 'select_quality',
-            episode: ep
-        });
+    msg += `\n0. Download ALL episodes in this season`;
+
+    return sock.sendMessage(jid, { text: msg });
+  }
+
+  // ===============================
+  // STEP 4: EPISODE SELECT
+  // ===============================
+  if (sessions[jid]?.step === "episode") {
+    const { eps } = sessions[jid];
+
+    if (text === "0") {
+      sessions[jid].step = "season_all_quality";
+
+      return sock.sendMessage(jid, {
+        text: "Select quality for ALL episodes in season (480 / 720 / 1080)",
+      });
     }
 
+    const ep = eps[parseInt(text) - 1];
+    if (!ep) return sock.sendMessage(jid, { text: "Invalid episode" });
 
-    // ========================================================
-    // ⚡ SELECT QUALITY → DOWNLOAD
-    // ========================================================
-    else if (s.stage === 'select_quality') {
+    sessions[jid] = {
+      step: "quality",
+      ep,
+    };
 
-        const map = {
-            1: "480p",
-            2: "720p",
-            3: "1080p"
-        };
+    return sock.sendMessage(jid, {
+      text: `Episode ${ep.episode}\n\nSelect quality:\n480\n720\n1080`,
+    });
+  }
 
-        const quality = map[num];
-        if (!quality) return reply('❌ Reply 1 / 2 / 3');
+  // ===============================
+  // STEP 5: SINGLE EPISODE DOWNLOAD
+  // ===============================
+  if (sessions[jid]?.step === "quality") {
+    const { ep } = sessions[jid];
 
-        const ep = s.episode;
+    const link = ep.download_links.find(l => l.quality === text);
 
-        const link = ep.download_links.find(d => d.quality === quality);
+    if (!link)
+      return sock.sendMessage(jid, { text: "Invalid quality" });
 
-        if (!link) {
-            return reply('❌ Quality not available');
-        }
+    await sock.sendMessage(jid, {
+      video: { url: link.direct_url },
+      caption: `Episode ${ep.episode} - ${text}`,
+    });
 
-        await reply(`⬇️ Downloading S${ep.season}E${ep.episode} (${quality})...`);
+    delete sessions[jid];
+  }
 
-        const fileUrl = link.proxy_url; // 🔥 IMPORTANT
+  // ===============================
+  // STEP 6: ALL EPISODES DOWNLOAD (SEASON)
+  // ===============================
+  if (sessions[jid]?.step === "season_all_quality") {
+    const quality = text;
 
-        await conn.sendMessage(from, {
-            document: { url: fileUrl },
-            mimetype: "video/mp4",
-            fileName: `S${ep.season}E${ep.episode} (${quality}).mp4`,
-            caption:
-`📺 TV SERIES DOWNLOAD
+    const { eps } = sessions[jid];
 
-🎬 Episode: S${ep.season}E${ep.episode}
-📹 Quality: ${quality}
+    for (const ep of eps) {
+      const link = ep.download_links.find(l => l.quality === quality);
+      if (!link) continue;
 
-_Powered by Cine TV Bot_`
-        }, { quoted: mek });
-
-        // reset to episode stage (multi download support)
-        session.set(from, {
-            stage: 'select_episode',
-            episodes: s.episodes,
-            series: s.series
-        });
+      await sock.sendMessage(jid, {
+        video: { url: link.direct_url },
+        caption: `Episode ${ep.episode} - ${quality}`,
+      });
     }
-});
+
+    delete sessions[jid];
+  }
+
+  // ===============================
+  // STEP 7: ALL SERIES ALL EPISODES
+  // ===============================
+  if (sessions[jid]?.step === "all_download") {
+    const quality = text;
+    const { result } = sessions[jid];
+
+    for (const ep of result.episodes) {
+      const link = ep.download_links.find(l => l.quality === quality);
+      if (!link) continue;
+
+      await sock.sendMessage(jid, {
+        video: { url: link.direct_url },
+        caption: `S${ep.season}E${ep.episode} - ${quality}`,
+      });
+    }
+
+    delete sessions[jid];
+  }
+};
