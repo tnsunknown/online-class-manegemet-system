@@ -6,16 +6,14 @@ const sharp = require('sharp');
 
 const sessionMap = new Map();
 
-console.log('📺 TV SERIES PLUGIN LOADED ✅');
+console.log('📺 TV PLUGIN LOADED ✅');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
 // ============================================================
-// 🖼️ Thumbnail helper
+// 🖼️ THUMBNAIL (m plugin style)
 // ============================================================
 async function getThumbnailBuffer(imageUrl) {
     try {
-        console.log('🖼️ Fetching thumbnail:', imageUrl);
-
         const res = await axios.get(imageUrl, {
             responseType: 'arraybuffer',
             timeout: 15000,
@@ -24,15 +22,10 @@ async function getThumbnailBuffer(imageUrl) {
             }
         });
 
-        const buf = Buffer.from(res.data);
-
-        const resized = await sharp(buf)
-            .resize(320, 320, { fit: 'cover' })
-            .jpeg({ quality: 60 })
+        return await sharp(Buffer.from(res.data))
+            .resize(400, 400, { fit: 'cover' })
+            .jpeg({ quality: 65 })
             .toBuffer();
-
-        console.log('✅ Thumbnail ready:', resized.length, 'bytes');
-        return resized;
 
     } catch (e) {
         console.log('⚠️ Thumbnail error:', e.message);
@@ -41,31 +34,51 @@ async function getThumbnailBuffer(imageUrl) {
 }
 
 // ============================================================
-// 📺 TV SEARCH COMMAND
+// 🔥 REACTION SYSTEM
+// ============================================================
+async function react(conn, mek, emoji) {
+    try {
+        await conn.sendMessage(mek.key.remoteJid, {
+            react: {
+                text: emoji,
+                key: mek.key
+            }
+        });
+    } catch (e) {
+        console.log('⚠️ Reaction failed:', e.message);
+    }
+}
+
+// ============================================================
+// 📺 SEARCH COMMAND
 // ============================================================
 cmd({
     pattern: 'tv',
-    desc: 'TV Series downloader',
     category: 'download'
 }, async (conn, mek, m, { from, args, reply }) => {
 
     if (!args.length) return reply('❌ Usage: .tv good girl');
 
     const query = args.join(' ');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🔍 TV SEARCH:', query);
+
+    await react(conn, mek, '🔍');
+
+    console.log('🔍 SEARCH:', query);
 
     try {
         const url = `https://cine-fix-tv.vercel.app/api/search?q=${encodeURIComponent(query)}`;
-        console.log('🌐 Search API:', url);
-
         const res = await axios.get(url);
+
         const data = res.data;
 
-        if (!data?.results?.length) return reply('❌ No results found');
+        if (!data.results.length) {
+            await react(conn, mek, '❌');
+            return reply('No results found');
+        }
 
-        let text = `📺 *TV SERIES RESULTS*\n🔎 ${query}\n\n`;
+        await react(conn, mek, '📺');
 
+        let text = `📺 *TV SERIES RESULTS*\n\n`;
         data.results.forEach((s, i) => {
             text += `*${i + 1}.* 📺 ${s.title}\n⭐ ${s.rating || 'N/A'}\n\n`;
         });
@@ -74,24 +87,25 @@ cmd({
 
         await conn.sendMessage(from, {
             image: thumb || undefined,
-            caption: text
+            caption: text + `Reply number to select`
         }, { quoted: mek });
 
         sessionMap.set(from, {
-            stage: 'series_select',
+            stage: 'series',
             results: data.results
         });
 
-        console.log('💾 Session: series_select');
+        console.log('💾 Session: series loaded');
 
     } catch (e) {
         console.log('❌ Search error:', e.message);
-        reply('❌ Search failed');
+        await react(conn, mek, '❌');
+        reply('Search failed');
     }
 });
 
 // ============================================================
-// 🔁 SESSION HANDLER
+// 🔁 MESSAGE HANDLER
 // ============================================================
 cmd({
     on: 'body'
@@ -101,19 +115,19 @@ cmd({
 
     const session = sessionMap.get(from);
     const input = body.trim();
+    const num = parseInt(input);
 
     if (input.toLowerCase() === 'done') {
         sessionMap.delete(from);
         return reply('✅ Session ended');
     }
 
-    const num = parseInt(input);
-    if (isNaN(num)) return;
+    // ========================================================
+    // 📺 SERIES SELECT
+    // ========================================================
+    if (session.stage === 'series') {
 
-    // ========================================================
-    // 1️⃣ SERIES SELECT
-    // ========================================================
-    if (session.stage === 'series_select') {
+        await react(conn, mek, '⏳');
 
         const series = session.results[num - 1];
         if (!series) return reply('❌ Invalid selection');
@@ -124,7 +138,6 @@ cmd({
         const res = await axios.get(api);
         const data = res.data.result;
 
-        // group seasons
         const seasons = {};
         data.episodes.forEach(ep => {
             if (!seasons[ep.season]) seasons[ep.season] = [];
@@ -132,12 +145,15 @@ cmd({
         });
 
         sessionMap.set(from, {
-            stage: 'season_select',
+            stage: 'season',
             series,
             seasons
         });
 
+        await react(conn, mek, '📂');
+
         let msg = `📺 *${series.title}*\n\nSelect Season:\n\n`;
+
         Object.keys(seasons).forEach((s, i) => {
             msg += `*${i + 1}.* Season ${s}\n`;
         });
@@ -145,17 +161,15 @@ cmd({
         const thumb = await getThumbnailBuffer(series.poster);
 
         await conn.sendMessage(from, {
-            image: thumb || undefined,
+            image: thumb,
             caption: msg
         }, { quoted: mek });
-
-        console.log('💾 Stage: season_select');
     }
 
     // ========================================================
-    // 2️⃣ SEASON SELECT
+    // 📂 SEASON SELECT
     // ========================================================
-    else if (session.stage === 'season_select') {
+    else if (session.stage === 'season') {
 
         const keys = Object.keys(session.seasons);
         const seasonKey = keys[num - 1];
@@ -165,104 +179,94 @@ cmd({
         const episodes = session.seasons[seasonKey];
 
         sessionMap.set(from, {
-            stage: 'episode_select',
+            stage: 'episode',
             series: session.series,
-            season: seasonKey,
+            seasonKey,
             episodes
         });
 
-        let msg = `📺 *Season ${seasonKey}*\n\nSelect Episode:\n\n`;
-        msg += `*0.* 🎬 All Episodes\n\n`;
+        await react(conn, mek, '🎬');
+
+        let msg = `📂 *Season ${seasonKey}*\n\n`;
+        msg += `0. 🎬 ALL EPISODES\n\n`;
 
         episodes.forEach((e, i) => {
             msg += `*${i + 1}.* Episode ${e.episode}\n`;
         });
 
-        await conn.sendMessage(from, { text: msg }, { quoted: mek });
+        msg += `\nReply numbers (e.g: 1 2 3)`;
 
-        console.log('💾 Stage: episode_select');
+        return reply(msg);
     }
 
     // ========================================================
-    // 3️⃣ EPISODE SELECT
+    // 🎬 EPISODE SELECT
     // ========================================================
-    else if (session.stage === 'episode_select') {
+    else if (session.stage === 'episode') {
 
-        const episodes = session.episodes;
+        const inputs = body.split(' ').map(n => parseInt(n)).filter(Boolean);
 
-        // ALL EPISODES
-        if (num === 0) {
+        let selected = [];
 
-            sessionMap.set(from, {
-                stage: 'quality_all',
-                episodes,
-                series: session.series
-            });
-
-            return reply(`🎬 All Episodes selected\n\nReply:\n*1.* 480p\n*2.* 720p\n*3.* 1080p`);
+        if (inputs.includes(0)) {
+            selected = session.episodes;
+        } else {
+            selected = inputs.map(i => session.episodes[i - 1]).filter(Boolean);
         }
 
-        const ep = episodes[num - 1];
-        if (!ep) return reply('❌ Invalid episode');
+        if (!selected.length) return reply('❌ Invalid selection');
 
         sessionMap.set(from, {
-            stage: 'quality_single',
-            episode: ep,
-            series: session.series
+            stage: 'quality',
+            series: session.series,
+            episodes: selected
         });
 
-        await reply(`📹 Episode ${ep.episode}\n\nSelect quality:\n*1* 480p\n*2* 720p\n*3* 1080p`);
+        await react(conn, mek, '📹');
+
+        return reply(
+`📹 Selected ${selected.length} episode(s)
+
+Choose Quality:
+1️⃣ 480p
+2️⃣ 720p
+3️⃣ 1080p`
+        );
     }
 
     // ========================================================
-    // 4️⃣ QUALITY SINGLE
+    // ⬇️ QUALITY DOWNLOAD (MULTI)
     // ========================================================
-    else if (session.stage === 'quality_single') {
-
-        const map = { 1: 0, 2: 1, 3: 2 };
-        const q = ['480p', '720p', '1080p'][map[num]];
-        if (!q) return reply('❌ Invalid quality');
-
-        const ep = session.episode;
-        const link = ep.download_links.find(d => d.quality === q);
-
-        console.log('⬇️ Download:', ep.episode, q);
-
-        await conn.sendMessage(from, {
-            document: { url: link.direct_url },
-            mimetype: 'video/mp4',
-            fileName: `Episode-${ep.episode}-${q}.mp4`,
-            caption: `📺 ${session.series.title}\n🎬 Episode ${ep.episode}\n📹 ${q}`
-        }, { quoted: mek });
-
-        sessionMap.delete(from);
-    }
-
-    // ========================================================
-    // 5️⃣ QUALITY ALL EPISODES
-    // ========================================================
-    else if (session.stage === 'quality_all') {
+    else if (session.stage === 'quality') {
 
         const map = { 1: '480p', 2: '720p', 3: '1080p' };
         const quality = map[num];
 
-        if (!quality) return reply('❌ Invalid quality');
+        if (!quality) {
+            await react(conn, mek, '❌');
+            return reply('Invalid quality');
+        }
 
-        reply(`⬇️ Sending ALL episodes in ${quality}...`);
+        await react(conn, mek, '⬇️');
 
         for (const ep of session.episodes) {
+
             const link = ep.download_links.find(d => d.quality === quality);
             if (!link) continue;
+
+            console.log(`⬇️ Sending Ep ${ep.episode}`);
 
             await conn.sendMessage(from, {
                 document: { url: link.direct_url },
                 mimetype: 'video/mp4',
                 fileName: `S${ep.season}E${ep.episode}-${quality}.mp4`,
-                caption: `📺 ${session.series.title}\n🎬 Ep ${ep.episode}\n📹 ${quality}`
+                caption: `📺 ${session.series.title}\n🎬 Episode ${ep.episode}\n📹 ${quality}`
             }, { quoted: mek });
 
             await new Promise(r => setTimeout(r, 2000));
         }
+
+        await react(conn, mek, '✅');
 
         sessionMap.delete(from);
     }
